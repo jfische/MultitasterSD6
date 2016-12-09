@@ -6,8 +6,8 @@
  */ 
 
 #include <Framework/Framework.h>
-#include <Homematic/HMWRS485.h>
-
+#include "Units/PwmLed.h"
+#include "Elements/Button.h"
 
 static const uint8_t debugLevel( DEBUG_LEVEL_LOW );
 #define getId() FSTR("Main::")
@@ -50,17 +50,43 @@ int main (void)
 	
 	Logger::setStream( putc );
 	
-	HMWRS485 hmwrs485(USART_SERIAL, RS485_RXEN_GPIO, RS485_TXEN_GPIO );
-	uint32_t time = rtc_get_time();
+	Timestamp timestamp;
+	
+	PwmLed led1( PWM_TCC0, PWM_CH_A, 5000 );
+	PwmLed led2( PWM_TCC0, PWM_CH_B, 5000 );
+	PwmLed led3( PWM_TCC0, PWM_CH_C, 5000 );
+	PwmLed led4( PWM_TCC0, PWM_CH_D, 5000 );
+	PwmLed led5( PWM_TCC1, PWM_CH_A, 5000 );
+	PwmLed led6( PWM_TCC1, PWM_CH_B, 5000 );
+	
+	uint8_t cnt = 0;
 	
 	while (true)
 	{
-		hmwrs485.loop();
-		if( time <= rtc_get_time() )
+		uint8_t divisor = 1;
+		
+		if( BUTTON_isPressed( BUTTON_S1_GPIO ) ) divisor += 2 ;
+		if( BUTTON_isPressed( BUTTON_S2_GPIO ) ) divisor += 4 ;
+		if( BUTTON_isPressed( BUTTON_S3_GPIO ) ) divisor += 8 ;
+		if( BUTTON_isPressed( BUTTON_S4_GPIO ) ) divisor += 16 ;
+		if( BUTTON_isPressed( BUTTON_S5_GPIO ) ) divisor += 32 ;
+		if( BUTTON_isPressed( BUTTON_S6_GPIO ) ) divisor += 64 ;
+		
+		uint8_t duty = ( SystemTime::now() / 10 )  % 100;
+		
+		led1.setDutyCycle( ( cnt & 0x01 ) ? duty : 0  );
+		led2.setDutyCycle( ( cnt & 0x02 ) ? duty : 0  );
+		led3.setDutyCycle( ( cnt & 0x04 ) ? duty : 0  );
+		led4.setDutyCycle( ( cnt & 0x08 ) ? duty : 0  );
+		led5.setDutyCycle( ( cnt & 0x10 ) ? duty : 0  );
+		led6.setDutyCycle( ( cnt & 0x20 ) ? duty : 0  );
+		
+		if( timestamp.since() >= SystemTime::S/divisor )
 		{
-			time = rtc_get_time() + 1024;
+			timestamp = Timestamp();
 			PORTR.OUTTGL = 1;
 			DEBUG_H1( "loop");
+			cnt++;
 		}
 		
 	}
